@@ -60,50 +60,48 @@ Observability
 
 ## Marketplace overview (paste into publish form)
 
-# Deploy and Host StatusPanda with Railway
+# Deploy and Host StatusPanda Uptime on Railway
 
-StatusPanda is a self hosted uptime monitor with a public status page, a private admin, and alerts when a site falls over. It is built to deploy in one click on Railway with zero form fields and a working page on first boot.
+StatusPanda Uptime is a self hosted monitor with a public status page and a private admin den. Deploy it on Railway and leave the defaults. It watches HTTP URLs, records incidents, and can shout into Discord or Slack when a site falls over. An example check is already running on first boot so the page is never empty.
 
-## About Hosting StatusPanda
+## About Hosting StatusPanda Uptime
 
-StatusPanda runs as one Node service. Checks, the status page, and SQLite all live together. Railway supplies the public domain, a generated admin password, and a volume at `/data` so incident history survives redeploys. There is no separate database to provision and no secret for the user to invent.
+StatusPanda Uptime runs as one Node service. Checks, the public page, and SQLite all live together. Railway gives you the public domain, a generated admin password, and a volume at `/data` so history survives redeploys. There is no separate database to provision and no secret for you to invent. Open the URL, copy `ADMIN_PASSWORD` from the service variables, and add your real sites. Optional webhooks wait in Settings until you want alerts.
 
 ## Common Use Cases
 
 - Publish a calm status page for customers while you sleep
 - Watch a marketing site, API, and docs URL from one den
 - Ping Discord or Slack the moment a check fails twice
-- Drop a live status badge into a GitHub README
-- Keep uptime history on a Railway volume without babysitting Postgres
 
-## Dependencies for StatusPanda Hosting
+## Dependencies for StatusPanda Uptime Hosting
 
 - Node 22 runtime
 - SQLite file on a Railway volume at `/data`
 - Outbound HTTPS so checks can reach the public internet
 
-### Deployment Dependencies
-
-- This repository
-- Railway public networking
-- Volume mounted at `/data`
-
 ### Implementation Details
+
+Required variables (leave the defaults):
+
+- `APP_NAME`: Public name on the status page. Leave StatusPanda unless you want your own brand.
+- `ADMIN_USER`: Admin login username. Leave admin unless you want a different name.
+- `ADMIN_PASSWORD`: Leave this. Railway fills a random password. After deploy, copy it from the service Variables tab to log in.
 
 After deploy:
 
 1. Public page: `https://<domain>/`
 2. Admin: `https://<domain>/login`
-3. Username: `admin`
+3. Username: `admin` (or your `ADMIN_USER`)
 4. Password: service variable `ADMIN_PASSWORD`
 5. Health: `https://<domain>/health`
 6. JSON: `https://<domain>/api/status`
 7. Badge: `https://<domain>/badge.svg`
 
-A self check is not used. An example monitor for https://railway.com is created on first boot so the status page already has a heartbeat. Remove it whenever you like.
+An example monitor for `https://railway.com` is created on first boot. Remove it in Admin whenever you like.
 
-### Why Deploy StatusPanda on Railway?
+## Why Deploy StatusPanda Uptime on Railway?
 
 Railway is a singular platform to deploy your infrastructure stack. Railway will host your infrastructure so you don't have to deal with configuration, while allowing you to vertically and horizontally scale it.
 
-By deploying StatusPanda on Railway, you are one step closer to supporting a complete full-stack application.
+By deploying StatusPanda Uptime on Railway, you are one step closer to supporting a complete full-stack application with minimal burden. Host your servers, databases, AI agents, and more on Railway.
