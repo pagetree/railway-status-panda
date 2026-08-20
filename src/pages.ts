@@ -26,20 +26,20 @@ export function overallStatus(): Overall {
 
 const headlines: Record<Overall, { title: string; lede: string; kicker: string; mood: "up" | "watch" | "down" }> = {
   calm: {
-    title: "Everything is running.",
-    lede: "Every service we watch is answering on time.",
-    kicker: "Live",
+    title: "All services are online",
+    lede: "Every monitored endpoint is operational.",
+    kicker: "Operational",
     mood: "up",
   },
   watch: {
-    title: "Gathering the first checks.",
-    lede: "This page fills in as heartbeats arrive.",
-    kicker: "Warming up",
+    title: "Collecting uptime data",
+    lede: "Checks are running and the dashboard will fill in as results arrive.",
+    kicker: "Checking",
     mood: "watch",
   },
   down: {
-    title: "Something needs you.",
-    lede: "A watched service missed a check. Details are below.",
+    title: "Some services are degraded",
+    lede: "At least one monitored endpoint is currently unavailable.",
     kicker: "Disruption",
     mood: "down",
   },
@@ -73,13 +73,14 @@ export function statusPage(): string {
       <section class="hero">
         <p class="kicker"><i class="orb"></i> ${copy.kicker}</p>
         <h1>${escapeHtml(headline)}</h1>
-        <p class="subline">${escapeHtml(subtitle)} Updated ${escapeHtml(formatAgo(last))}.</p>
+        <p class="subline">${escapeHtml(subtitle)}</p>
+        <p class="updated">Last updated ${escapeHtml(formatAgo(last))}</p>
       </section>
       ${monitors.length ? monitorList(monitors) : emptyPublic()}
       ${incidentList(incidents)}
       <footer class="footer">
-        <span>StatusPanda</span>
-        <span>A status page meant to stay on screen</span>
+        <span>Powered by StatusPanda</span>
+        <span>Simple uptime monitoring on Railway</span>
       </footer>
     </div>
     <script>
@@ -93,10 +94,10 @@ export function statusPage(): string {
 
 function emptyPublic(): string {
   return `<section>
-    <p class="section-label">Services</p>
+    <p class="section-label">Current status</p>
     <div class="empty">
-      <h2>Nothing on the board yet</h2>
-      <p>Open Admin and add a URL. The first ribbon of checks will draw itself here.</p>
+      <h2>No services yet</h2>
+      <p>Open Admin and add the first endpoint to start publishing uptime.</p>
     </div>
   </section>`;
 }
@@ -118,17 +119,21 @@ function monitorList(monitors: Monitor[]): string {
             <div class="meta">
               <span>${escapeHtml(hostOf(monitor.url))}</span>
               <span>${latency}</span>
-              <span>${up} uptime</span>
             </div>
           </div>
-          <span class="state ${state}">${label}</span>
+          <div class="service-score">
+            <span class="state ${state}">${label}</span>
+            <strong>${up}</strong>
+            <span>uptime</span>
+          </div>
         </div>
         ${ticks(history)}
+        <div class="range-labels"><span>Oldest</span><span>Latest</span></div>
       </article>`;
     })
     .join("");
   return `<section>
-    <p class="section-label">Services · 90 recent checks</p>
+    <p class="section-label">Current status</p>
     <div class="services">${rows}</div>
   </section>`;
 }
@@ -154,7 +159,7 @@ function incidentList(
         .join("")
     : `<div class="empty"><h2>Quiet so far</h2><p>No incidents have been opened yet.</p></div>`;
   return `<section>
-    <p class="section-label" style="margin-top:56px">Incidents</p>
+    <p class="section-label incidents-title">Previous incidents</p>
     <div class="timeline">${items}</div>
   </section>`;
 }
