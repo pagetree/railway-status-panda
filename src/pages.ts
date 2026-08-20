@@ -66,15 +66,36 @@ export function statusPage(): string {
   const subtitle = getSetting("page_subtitle") || copy.lede;
   const last = lastCheckedAt();
   const headline = title === brand ? copy.title : title;
+  const openIncidents = incidents.filter((incident) => !incident.ended_at).length;
+  const uptime = overallUptime(monitors);
 
   const body = `
     <div class="shell">
-      ${nav(brand, `<a class="btn" href="/login">Admin</a>`)}
-      <section class="hero">
-        <p class="kicker"><i class="orb"></i> ${copy.kicker}</p>
-        <h1>${escapeHtml(headline)}</h1>
-        <p class="subline">${escapeHtml(subtitle)}</p>
-        <p class="updated">Last updated ${escapeHtml(formatAgo(last))}</p>
+      ${nav(
+        brand,
+        `<a class="nav-link" href="#status">Status</a>
+         <a class="nav-link" href="#incidents">Previous incidents</a>
+         <a class="btn" href="/login">Admin</a>`
+      )}
+      <section class="hero" id="status">
+        <div class="hero-copy">
+          <p class="kicker"><i class="orb"></i> ${copy.kicker}</p>
+          <h1>${escapeHtml(headline)}</h1>
+          <p class="subline">${escapeHtml(subtitle)}</p>
+          <p class="updated">Last updated ${escapeHtml(formatTime(last))}</p>
+        </div>
+        <div class="status-card">
+          <div class="status-card-top">
+            <span class="status-mark ${copy.mood}">${statusGlyph(copy.mood)}</span>
+            <span>${escapeHtml(copy.kicker)}</span>
+          </div>
+          <strong>${monitors.length}</strong>
+          <p>monitored services</p>
+          <div class="hero-stats">
+            <span><b>${uptime}</b> uptime</span>
+            <span><b>${openIncidents}</b> active incidents</span>
+          </div>
+        </div>
       </section>
       ${monitors.length ? monitorList(monitors) : emptyPublic()}
       ${incidentList(incidents)}
@@ -90,6 +111,23 @@ export function statusPage(): string {
   `;
 
   return layout({ title: `${title} status`, body, mood: copy.mood });
+}
+
+function statusGlyph(mood: "up" | "watch" | "down"): string {
+  if (mood === "up") {
+    return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 12.5l3.2 3.2L17.5 8" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  }
+  if (mood === "down") {
+    return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8l8 8M16 8l-8 8" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>`;
+  }
+  return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6v7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><circle cx="12" cy="17" r="1.5" fill="currentColor"/></svg>`;
+}
+
+function overallUptime(monitors: Monitor[]): string {
+  const ratios = monitors.map((monitor) => uptimeRatio(monitor.id)).filter((ratio): ratio is number => ratio != null);
+  if (!ratios.length) return "new";
+  const value = ratios.reduce((sum, ratio) => sum + ratio, 0) / ratios.length;
+  return pct(value);
 }
 
 function emptyPublic(): string {
@@ -128,13 +166,22 @@ function monitorList(monitors: Monitor[]): string {
           </div>
         </div>
         ${ticks(history)}
-        <div class="range-labels"><span>Oldest</span><span>Latest</span></div>
+        <div class="range-labels"><span>90 checks ago</span><span>60</span><span>30</span><span>Latest</span></div>
       </article>`;
     })
     .join("");
   return `<section>
-    <p class="section-label">Current status</p>
-    <div class="services">${rows}</div>
+    <div class="section-head">
+      <p class="section-label">Current status</p>
+      <span>${monitors.length} ${monitors.length === 1 ? "service" : "services"}</span>
+    </div>
+    <div class="services">
+      <div class="group-title">
+        <span>Production</span>
+        <span>Recent uptime</span>
+      </div>
+      ${rows}
+    </div>
   </section>`;
 }
 
@@ -159,7 +206,10 @@ function incidentList(
         .join("")
     : `<div class="empty"><h2>Quiet so far</h2><p>No incidents have been opened yet.</p></div>`;
   return `<section>
-    <p class="section-label incidents-title">Previous incidents</p>
+    <div class="section-head incidents-title" id="incidents">
+      <p class="section-label">Previous incidents</p>
+      <span>${incidents.length ? `${incidents.length} shown` : "No disruptions"}</span>
+    </div>
     <div class="timeline">${items}</div>
   </section>`;
 }

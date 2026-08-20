@@ -186,6 +186,13 @@ a { color: inherit; text-decoration: none; }
   align-items: center;
   gap: 10px;
 }
+.nav-link {
+  color: var(--soft);
+  font-size: 14px;
+  font-weight: 650;
+  transition: color .18s ease;
+}
+.nav-link:hover { color: var(--ink); }
 .btn, button.btn {
   appearance: none;
   cursor: pointer;
@@ -213,6 +220,10 @@ a { color: inherit; text-decoration: none; }
 }
 .btn.danger { color: var(--red); }
 .hero {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 34px;
+  align-items: stretch;
   margin: 0 0 44px;
   padding: 42px 46px;
   border: 1px solid var(--line);
@@ -221,6 +232,9 @@ a { color: inherit; text-decoration: none; }
     linear-gradient(135deg, rgba(255,255,255,.95), rgba(255,255,255,.70)),
     linear-gradient(135deg, var(--green-soft), transparent 48%);
   box-shadow: var(--shadow);
+}
+.hero-copy {
+  min-width: 0;
 }
 .mood-down .hero {
   background:
@@ -271,6 +285,67 @@ h1 {
   color: var(--faint);
   font-size: 14px;
 }
+.status-card {
+  align-self: stretch;
+  display: grid;
+  align-content: end;
+  padding: 28px;
+  border: 1px solid rgba(255,255,255,.72);
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.82), rgba(255,255,255,.48)),
+    var(--green-soft);
+}
+.mood-down .status-card { background: linear-gradient(180deg, rgba(255,255,255,.82), rgba(255,255,255,.48)), var(--red-soft); }
+.mood-watch .status-card { background: linear-gradient(180deg, rgba(255,255,255,.82), rgba(255,255,255,.48)), var(--yellow-soft); }
+.status-card-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--green-ink);
+  font-size: 13px;
+  font-weight: 750;
+}
+.mood-down .status-card-top { color: var(--red); }
+.mood-watch .status-card-top { color: var(--yellow); }
+.status-mark {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #fff;
+  color: currentColor;
+}
+.status-mark svg { width: 20px; height: 20px; }
+.status-card strong {
+  margin-top: 48px;
+  font-size: 64px;
+  line-height: .9;
+  letter-spacing: -.07em;
+}
+.status-card p {
+  margin: 8px 0 22px;
+  color: var(--soft);
+}
+.hero-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.hero-stats span {
+  padding: 14px;
+  border: 1px solid rgba(23,23,23,.06);
+  border-radius: 16px;
+  background: rgba(255,255,255,.58);
+  color: var(--soft);
+  font-size: 12px;
+}
+.hero-stats b {
+  display: block;
+  color: var(--ink);
+  font-size: 16px;
+}
 .section-label {
   margin: 42px 0 16px;
   color: var(--soft);
@@ -278,15 +353,56 @@ h1 {
   font-weight: 750;
   letter-spacing: .02em;
 }
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.section-head .section-label { margin-bottom: 14px; }
+.section-head span {
+  color: var(--faint);
+  font-size: 13px;
+  font-weight: 650;
+}
 .services {
   display: grid;
-  gap: 16px;
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255,255,255,.70);
+  box-shadow: 0 16px 44px rgba(56,44,25,.055);
+  overflow: hidden;
+}
+.group-title {
+  display: grid;
+  grid-template-columns: 1fr 180px;
+  gap: 20px;
+  padding: 15px 26px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(255,255,255,.62);
+  color: var(--faint);
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: .02em;
 }
 .service {
   padding: 26px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.service:last-child {
+  border-bottom: 0;
+}
+.admin-grid > .service,
+.stack > .service,
+form.service {
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: rgba(255,255,255,.82);
+  background: rgba(255,255,255,.78);
   box-shadow: 0 16px 44px rgba(56,44,25,.055);
 }
 .service-top {
@@ -533,7 +649,12 @@ input:focus, select:focus, textarea:focus {
 @media (max-width: 820px) {
   .shell { width: min(1020px, calc(100% - 28px)); padding-top: 20px; }
   .nav { margin-bottom: 36px; }
+  .nav-link { display: none; }
+  .hero { grid-template-columns: 1fr; gap: 18px; }
   .hero { padding: 30px 24px; border-radius: 28px; }
+  .status-card strong { margin-top: 26px; font-size: 50px; }
+  .hero-stats { grid-template-columns: 1fr; }
+  .group-title { display: none; }
   .service-top { grid-template-columns: 1fr; }
   .service-score { min-width: 0; text-align: left; }
   .admin-grid, .grid-2 { grid-template-columns: 1fr; }

@@ -306,15 +306,23 @@ export function lastCheckedAt(): string | null {
 }
 
 export function seedExampleMonitor(): void {
-  const row = db.prepare("SELECT COUNT(*) AS n FROM monitors").get() as { n: number };
-  if (row.n > 0) return;
-  createMonitor({
-    name: "Example Railway",
-    url: "https://railway.com",
-    type: "http",
-    interval_sec: 60,
-    expected_status: 200,
-  });
+  const examples = [
+    { name: "Website", url: "https://railway.com" },
+    { name: "API health", url: "https://www.githubstatus.com" },
+    { name: "Docs", url: "https://docs.railway.com" },
+  ];
+
+  for (const example of examples) {
+    const existing = db.prepare("SELECT id FROM monitors WHERE url = ?").get(example.url);
+    if (existing) continue;
+    createMonitor({
+      name: example.name,
+      url: example.url,
+      type: "http",
+      interval_sec: 60,
+      expected_status: 200,
+    });
+  }
 }
 
 function clamp(value: number, min: number, max: number): number {
