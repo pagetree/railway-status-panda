@@ -53,7 +53,7 @@ app.get("/api/status", (_req, res) => {
 app.get("/badge.svg", (_req, res) => {
   const overall = overallStatus();
   const label = overall === "calm" ? "operational" : overall === "down" ? "down" : "checking";
-  const color = overall === "calm" ? "#8be36a" : overall === "down" ? "#ff6b5a" : "#ffc857";
+  const color = overall === "calm" ? "#34a853" : overall === "down" ? "#ea4335" : "#fbbc04";
   res.type("image/svg+xml").send(`<svg xmlns="http://www.w3.org/2000/svg" width="148" height="20">
     <rect width="148" height="20" rx="4" fill="#111"/>
     <rect x="78" width="70" height="20" rx="4" fill="${color}"/>
