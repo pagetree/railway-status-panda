@@ -9,7 +9,7 @@ import {
   uptimeRatio,
   type Monitor,
 } from "./db.js";
-import { escapeHtml, formatAgo, formatTime, layout, pct, ticks, wordmark } from "./ui.js";
+import { escapeHtml, formatTime, layout, pct, ticks, wordmark } from "./ui.js";
 
 export type Overall = "calm" | "watch" | "down";
 
@@ -24,25 +24,10 @@ export function overallStatus(): Overall {
   return "calm";
 }
 
-const headlines: Record<Overall, { title: string; lede: string; kicker: string; mood: "up" | "watch" | "down" }> = {
-  calm: {
-    title: "All systems operational",
-    lede: "Every monitored endpoint is responding normally.",
-    kicker: "Operational",
-    mood: "up",
-  },
-  watch: {
-    title: "Gathering live status",
-    lede: "Checks are running. History fills in as results arrive.",
-    kicker: "Monitoring",
-    mood: "watch",
-  },
-  down: {
-    title: "Partial system outage",
-    lede: "At least one monitored endpoint is currently unavailable.",
-    kicker: "Degraded",
-    mood: "down",
-  },
+const headlines: Record<Overall, { title: string; mood: "up" | "watch" | "down" }> = {
+  calm: { title: "All services are online", mood: "up" },
+  watch: { title: "Collecting uptime data", mood: "watch" },
+  down: { title: "Some services are down", mood: "down" },
 };
 
 function brandName(): string {
@@ -63,65 +48,27 @@ export function statusPage(): string {
   const incidents = listIncidents(8);
   const brand = brandName();
   const title = getSetting("page_title", brand);
-  const subtitle = getSetting("page_subtitle") || copy.lede;
+  const subtitle = getSetting("page_subtitle");
   const last = lastCheckedAt();
   const headline = title === brand ? copy.title : title;
-  const openIncidents = incidents.filter((incident) => !incident.ended_at).length;
-  const uptime = overallUptime(monitors);
-  const enabled = monitors.filter((m) => m.enabled).length;
 
   const body = `
-    <div class="shell status-shell">
+    <div class="shell">
       ${nav(
         brand,
-        `<a class="nav-link" href="#services">Services</a>
-         <a class="nav-link" href="#incidents">Incidents</a>
-         <a class="btn ghost" href="/login">Admin</a>`
+        `<a class="nav-link" href="#status">Status</a>
+         <a class="nav-link" href="#incidents">Previous incidents</a>
+         <a class="btn" href="/login">Admin</a>`
       )}
 
-      <section class="status-banner mood-${copy.mood}" id="status">
-        <div class="status-banner-glow" aria-hidden="true"></div>
-        <div class="status-banner-inner">
-          <div class="status-banner-main">
-            <div class="live-pill">
-              <i class="pulse"></i>
-              <span>Live</span>
-            </div>
-            <h1 class="status-title">
-              <span class="status-icon" aria-hidden="true">${statusGlyph(copy.mood)}</span>
-              ${escapeHtml(headline)}
-            </h1>
-            <p class="status-lede">${escapeHtml(subtitle)}</p>
+      <section class="hero" id="status">
+        <div class="hero-status">
+          <span class="hero-mark ${copy.mood}" aria-hidden="true">${statusGlyph(copy.mood)}</span>
+          <div>
+            <h1>${escapeHtml(headline)}</h1>
+            ${subtitle ? `<p class="hero-sub">${escapeHtml(subtitle)}</p>` : ""}
+            <p class="hero-updated">Last updated ${escapeHtml(formatUpdated(last))}</p>
           </div>
-          <div class="status-banner-meta">
-            <div class="meta-chip">
-              <span class="meta-label">Last checked</span>
-              <strong>${escapeHtml(formatAgo(last))}</strong>
-            </div>
-            <div class="meta-chip">
-              <span class="meta-label">Overall</span>
-              <strong class="tone">${escapeHtml(copy.kicker)}</strong>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="metric-strip" aria-label="Status overview">
-        <div class="metric">
-          <span class="metric-value">${monitors.length}</span>
-          <span class="metric-label">Services</span>
-        </div>
-        <div class="metric">
-          <span class="metric-value">${enabled}</span>
-          <span class="metric-label">Active checks</span>
-        </div>
-        <div class="metric">
-          <span class="metric-value">${uptime}</span>
-          <span class="metric-label">Avg uptime</span>
-        </div>
-        <div class="metric">
-          <span class="metric-value">${openIncidents}</span>
-          <span class="metric-label">Open incidents</span>
         </div>
       </section>
 
@@ -129,8 +76,7 @@ export function statusPage(): string {
       ${incidentList(incidents)}
 
       <footer class="footer">
-        <span>Powered by <strong>StatusPanda</strong></span>
-        <span>Realtime uptime on Railway</span>
+        <span>Powered by StatusPanda</span>
       </footer>
     </div>
     <script>
@@ -144,29 +90,28 @@ export function statusPage(): string {
 
 function statusGlyph(mood: "up" | "watch" | "down"): string {
   if (mood === "up") {
-    return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 12.5l3.2 3.2L17.5 8" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 12.5l3.2 3.2L17.5 8" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
   }
   if (mood === "down") {
-    return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8l8 8M16 8l-8 8" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>`;
+    return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8l8 8M16 8l-8 8" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/></svg>`;
   }
-  return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6v7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><circle cx="12" cy="17" r="1.5" fill="currentColor"/></svg>`;
+  return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6v7" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/><circle cx="12" cy="17" r="1.5" fill="currentColor"/></svg>`;
 }
 
-function overallUptime(monitors: Monitor[]): string {
-  const ratios = monitors.map((monitor) => uptimeRatio(monitor.id)).filter((ratio): ratio is number => ratio != null);
-  if (!ratios.length) return "new";
-  const value = ratios.reduce((sum, ratio) => sum + ratio, 0) / ratios.length;
-  return pct(value);
+function formatUpdated(iso: string | null): string {
+  if (!iso) return "Waiting for the first check";
+  return new Date(iso).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  });
 }
 
 function emptyPublic(): string {
-  return `<section class="panel-section" id="services">
-    <div class="section-head">
-      <div>
-        <p class="section-kicker">Services</p>
-        <h2 class="section-title">Current status</h2>
-      </div>
-    </div>
+  return `<section class="services" id="services">
     <div class="empty">
       <h2>No services yet</h2>
       <p>Open Admin and add the first endpoint to start publishing uptime.</p>
@@ -182,47 +127,30 @@ function monitorList(monitors: Monitor[]): string {
       const state = ok == null ? "watch" : ok ? "up" : "down";
       const label = ok == null ? "Checking" : ok ? "Operational" : "Down";
       const history = padTicks(recentChecks(monitor.id, TICK_COUNT).map((c) => Boolean(c.ok)));
-      const latency = last?.latency_ms != null ? `${last.latency_ms}ms` : "Pending";
       const up = pct(uptimeRatio(monitor.id));
-      return `<article class="service-row">
-        <div class="service-row-top">
-          <div class="service-identity">
+      const upLabel = up === "new" ? "No data yet" : `${up} uptime`;
+      return `<article class="monitor">
+        <div class="monitor-head">
+          <div>
             <h3>${escapeHtml(monitor.name)}</h3>
-            <div class="meta">
-              <span class="host">${escapeHtml(hostOf(monitor.url))}</span>
-              <span class="sep" aria-hidden="true"></span>
-              <span class="latency">${latency}</span>
-            </div>
+            <p class="monitor-desc">${escapeHtml(hostOf(monitor.url))}</p>
           </div>
-          <div class="service-aside">
-            <span class="state ${state}"><i></i>${label}</span>
-            <div class="uptime-block">
-              <strong>${up}</strong>
-              <span>uptime</span>
-            </div>
-          </div>
+          <span class="status-text ${state}">${label}</span>
         </div>
-        ${ticks(history)}
-        <div class="range-labels"><span>90 checks ago</span><span>Now</span></div>
+        <div class="monitor-bars">
+          ${ticks(history)}
+          <span class="uptime-pct">${escapeHtml(upLabel)}</span>
+        </div>
+        <div class="range-labels">
+          <span>90 checks ago</span>
+          <span>60</span>
+          <span>30</span>
+          <span>Today</span>
+        </div>
       </article>`;
     })
     .join("");
-  return `<section class="panel-section" id="services">
-    <div class="section-head">
-      <div>
-        <p class="section-kicker">Services</p>
-        <h2 class="section-title">Current status</h2>
-      </div>
-      <span class="section-count">${monitors.length} monitored</span>
-    </div>
-    <div class="services-panel">
-      <div class="group-bar">
-        <span>Production</span>
-        <span>Uptime history</span>
-      </div>
-      ${rows}
-    </div>
-  </section>`;
+  return `<section class="services" id="services">${rows}</section>`;
 }
 
 function incidentList(
@@ -233,30 +161,21 @@ function incidentList(
         .map((item) => {
           const open = !item.ended_at;
           return `<article class="incident ${open ? "open" : ""}">
-            <div class="incident-rail" aria-hidden="true"><i class="dot"></i></div>
-            <div class="incident-body">
-              <div class="incident-top">
-                <h3>${escapeHtml(item.title)}</h3>
-                <span class="incident-badge ${open ? "open" : "resolved"}">${open ? "Ongoing" : "Resolved"}</span>
-              </div>
-              <p class="incident-meta">${escapeHtml(item.monitor_name)} · ${escapeHtml(formatTime(item.started_at))}${
-                open ? "" : ` · Resolved ${escapeHtml(formatTime(item.ended_at))}`
-              }</p>
-              <p class="incident-copy">${escapeHtml(item.body)}</p>
+            <div class="incident-head">
+              <h3>${escapeHtml(item.title)}</h3>
+              <span class="status-text ${open ? "down" : "up"}">${open ? "Ongoing" : "Resolved"}</span>
             </div>
+            <p class="incident-meta">${escapeHtml(item.monitor_name)} · ${escapeHtml(formatTime(item.started_at))}${
+              open ? "" : ` · Resolved ${escapeHtml(formatTime(item.ended_at))}`
+            }</p>
+            <p class="incident-body">${escapeHtml(item.body)}</p>
           </article>`;
         })
         .join("")
-    : `<div class="empty quiet"><h2>No incidents</h2><p>Everything has stayed quiet so far.</p></div>`;
-  return `<section class="panel-section" id="incidents">
-    <div class="section-head">
-      <div>
-        <p class="section-kicker">History</p>
-        <h2 class="section-title">Past incidents</h2>
-      </div>
-      <span class="section-count">${incidents.length ? `${incidents.length} shown` : "All clear"}</span>
-    </div>
-    <div class="timeline">${items}</div>
+    : `<p class="incident-empty">No incidents reported.</p>`;
+  return `<section class="incidents" id="incidents">
+    <h2>Previous incidents</h2>
+    ${items}
   </section>`;
 }
 
