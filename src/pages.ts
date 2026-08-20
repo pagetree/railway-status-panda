@@ -9,7 +9,7 @@ import {
   uptimeRatio,
   type Monitor,
 } from "./db.js";
-import { escapeHtml, formatTime, layout, pct, ticks, wordmark } from "./ui.js";
+import { escapeHtml, formatTime, icon, layout, pct, themeToggle, ticks, wordmark } from "./ui.js";
 
 export type Overall = "calm" | "watch" | "down";
 
@@ -37,7 +37,7 @@ function brandName(): string {
 function nav(brand: string, extra: string): string {
   return `<header class="nav">
     ${wordmark(brand)}
-    <div class="nav-links">${extra}</div>
+    <div class="nav-links">${extra}${themeToggle()}</div>
   </header>`;
 }
 
@@ -58,7 +58,7 @@ export function statusPage(): string {
         brand,
         `<a class="nav-link" href="#status">Status</a>
          <a class="nav-link" href="#incidents">Previous incidents</a>
-         <a class="btn" href="/login">Admin</a>`
+         <a class="btn" href="/login">${icon("admin")}Admin</a>`
       )}
 
       <section class="hero" id="status">
@@ -182,6 +182,7 @@ function incidentList(
 export function loginPage(error?: string): string {
   const body = `
     <div class="login-shell">
+      ${themeToggle()}
       <div class="login-card">
         ${wordmark(brandName())}
         <h1>Welcome in.</h1>
@@ -193,8 +194,8 @@ export function loginPage(error?: string): string {
           <label for="password">Password</label>
           <input id="password" name="password" type="password" autocomplete="current-password" required />
           <div class="row" style="margin-top:28px">
-            <button class="btn primary" type="submit">Enter</button>
-            <a class="btn" href="/">Status page</a>
+            <button class="btn primary" type="submit">${icon("enter")}Enter</button>
+            <a class="btn" href="/">${icon("status")}Status page</a>
           </div>
         </form>
       </div>
@@ -211,9 +212,9 @@ export function adminPage(opts: { toast?: string; editId?: number }): string {
     <div class="shell">
       ${nav(
         brand,
-        `<a class="btn" href="/">Status</a>
-         <a class="btn" href="/admin/settings">Settings</a>
-         <form method="post" action="/logout"><button class="btn" type="submit">Sign out</button></form>`
+        `<a class="btn" href="/">${icon("status")}Status</a>
+         <a class="btn" href="/admin/settings">${icon("settings")}Settings</a>
+         <form method="post" action="/logout"><button class="btn" type="submit">${icon("logout")}Sign out</button></form>`
       )}
       <p class="page-kicker">Admin</p>
       <h1 style="font-size:clamp(2.6rem,6vw,4.2rem);max-width:12ch;margin-bottom:36px">What should we watch?</h1>
@@ -267,8 +268,8 @@ export function adminPage(opts: { toast?: string; editId?: number }): string {
             </div>
             ${edit ? `<input type="hidden" name="enabled" value="${edit.enabled}" />` : ""}
             <div class="row">
-              <button class="btn primary" type="submit">${edit ? "Save" : "Add monitor"}</button>
-              ${edit ? `<a class="btn" href="/admin">Cancel</a>` : ""}
+              <button class="btn primary" type="submit">${edit ? `${icon("save")}Save` : `${icon("plus")}Add monitor`}</button>
+              ${edit ? `<a class="btn" href="/admin">${icon("cancel")}Cancel</a>` : ""}
             </div>
           </div>
         </form>
@@ -294,12 +295,12 @@ function adminCard(monitor: Monitor, editId?: number): string {
     </div>
     ${ticks(history)}
     <div class="row" style="margin-top:16px">
-      <a class="btn" href="/admin?edit=${monitor.id}">${editId === monitor.id ? "Editing" : "Edit"}</a>
+      <a class="btn" href="/admin?edit=${monitor.id}">${icon("edit")}${editId === monitor.id ? "Editing" : "Edit"}</a>
       <form method="post" action="/admin/monitors/${monitor.id}/pause">
-        <button class="btn" type="submit">${monitor.enabled ? "Pause" : "Resume"}</button>
+        <button class="btn" type="submit">${monitor.enabled ? `${icon("pause")}Pause` : `${icon("play")}Resume`}</button>
       </form>
       <form method="post" action="/admin/monitors/${monitor.id}/delete">
-        <button class="btn danger" type="submit">Remove</button>
+        <button class="btn danger" type="submit">${icon("trash")}Remove</button>
       </form>
     </div>
   </article>`;
@@ -309,7 +310,7 @@ export function settingsPage(toast?: string): string {
   const brand = brandName();
   const body = `
     <div class="shell">
-      ${nav(brand, `<a class="btn" href="/admin">Monitors</a><a class="btn" href="/">Status</a>`)}
+      ${nav(brand, `<a class="btn" href="/admin">${icon("monitors")}Monitors</a><a class="btn" href="/">${icon("status")}Status</a>`)}
       <p class="page-kicker">Settings</p>
       <h1 style="font-size:clamp(2.6rem,6vw,4.2rem);max-width:10ch;margin-bottom:36px">Page and alerts</h1>
       <form method="post" action="/admin/settings" class="service stack">
@@ -333,7 +334,7 @@ export function settingsPage(toast?: string): string {
           <label for="generic_webhook">Generic JSON webhook</label>
           <input id="generic_webhook" name="generic_webhook" value="${escapeHtml(getSetting("generic_webhook"))}" placeholder="https://example.com/hooks/status" />
         </div>
-        <button class="btn primary" type="submit">Save</button>
+        <button class="btn primary" type="submit">${icon("save")}Save</button>
       </form>
     </div>
   `;
