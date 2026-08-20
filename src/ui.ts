@@ -73,22 +73,9 @@ export function pct(ratio: number | null): string {
 
 export function wordmark(name = "StatusPanda"): string {
   return `<a class="brand" href="/">
-    <span class="mark">${miniPanda()}</span>
+    <img class="mark" src="/icon.svg" width="32" height="32" alt="" />
     <span class="word">${escapeHtml(name)}</span>
   </a>`;
-}
-
-function miniPanda(): string {
-  return `<svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true">
-    <circle cx="14" cy="14" r="7.5" fill="currentColor"/>
-    <circle cx="34" cy="14" r="7.5" fill="currentColor"/>
-    <circle cx="24" cy="27" r="15" fill="#ffffff"/>
-    <ellipse cx="17.5" cy="26" rx="5.5" ry="6.5" fill="currentColor"/>
-    <ellipse cx="30.5" cy="26" rx="5.5" ry="6.5" fill="currentColor"/>
-    <circle cx="18" cy="26.5" r="1.7" fill="#ffffff"/>
-    <circle cx="31" cy="26.5" r="1.7" fill="#ffffff"/>
-    <ellipse cx="24" cy="32" rx="2.6" ry="2" fill="currentColor"/>
-  </svg>`;
 }
 
 const css = `
@@ -136,10 +123,8 @@ a { color: inherit; text-decoration: none; }
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  background: var(--ink);
-  color: #fff;
-  display: grid;
-  place-items: center;
+  display: block;
+  flex-shrink: 0;
 }
 .word {
   font-size: 15px;
@@ -161,6 +146,9 @@ a { color: inherit; text-decoration: none; }
 .btn, button.btn {
   appearance: none;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   height: 36px;
   padding: 0 14px;
   border: 1px solid var(--line);
@@ -170,6 +158,7 @@ a { color: inherit; text-decoration: none; }
   font: inherit;
   font-size: 14px;
   font-weight: 550;
+  line-height: 1;
 }
 .btn:hover { background: var(--soft-bg); }
 .btn.primary {
