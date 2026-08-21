@@ -221,32 +221,29 @@ export function adminPage(opts: { toast?: string; editId?: number }): string {
          <form method="post" action="/logout"><button class="btn" type="submit">${icon("logout")}Sign out</button></form>`
       )}
       <p class="page-kicker">Admin</p>
-      <h1 style="font-size:clamp(2.6rem,6vw,4.2rem);max-width:12ch;margin-bottom:36px">What should we watch?</h1>
-      <div class="admin-grid">
-        <div class="stack">
-          ${
-            monitors.length
-              ? monitors.map((m) => adminCard(m, opts.editId)).join("")
-              : `<div class="empty"><h2>No monitors yet</h2><p>Pick a check type, paste a target, and you are watching.</p></div>`
-          }
+      <h1 style="font-size:clamp(2.6rem,6vw,4.2rem);max-width:12ch;margin-bottom:28px">What should we watch?</h1>
+
+      <form class="service monitor-form" method="post" action="${edit ? `/admin/monitors/${edit.id}` : "/admin/monitors"}" id="monitor-form">
+        <div class="monitor-form-head">
+          <div>
+            <h3>${edit ? "Edit monitor" : "Add a monitor"}</h3>
+            <p class="field-hint" id="type-hint">${escapeHtml(typeMeta.hint)}${
+              selectedType === "ssl" ? ` Fails within ${SSL_WARN_DAYS} days of expiry.` : ""
+            }</p>
+          </div>
         </div>
-        <form class="service" method="post" action="${edit ? `/admin/monitors/${edit.id}` : "/admin/monitors"}" id="monitor-form">
-          <h3 style="margin-bottom:8px">${edit ? "Edit monitor" : "Add a monitor"}</h3>
-          <div class="stack">
-            <div>
-              <span class="field-label">Check type</span>
-              <div class="type-grid" role="radiogroup" aria-label="Check type">
-                ${MONITOR_TYPES.map(
-                  (item) => `<label class="type-chip">
-                    <input type="radio" name="type" value="${item.value}" ${selectedType === item.value ? "checked" : ""} />
-                    <span class="type-chip-body">
-                      <strong>${item.label}</strong>
-                      <small>${item.hint}</small>
-                    </span>
-                  </label>`
-                ).join("")}
-              </div>
-            </div>
+
+        <div class="tab-group" role="tablist" aria-label="Check type">
+          ${MONITOR_TYPES.map(
+            (item) => `<label class="tab-btn">
+              <input type="radio" name="type" value="${item.value}" ${selectedType === item.value ? "checked" : ""} />
+              <span>${item.label}</span>
+            </label>`
+          ).join("")}
+        </div>
+
+        <div class="monitor-form-body">
+          <div class="form-grid">
             <div>
               <label for="name">Name</label>
               <input id="name" name="name" required placeholder="Marketing site" value="${escapeHtml(edit?.name ?? "")}" />
@@ -254,9 +251,6 @@ export function adminPage(opts: { toast?: string; editId?: number }): string {
             <div>
               <label for="url" id="target-label">${escapeHtml(typeMeta.targetLabel)}</label>
               <input id="url" name="url" required placeholder="${escapeHtml(typeMeta.placeholder)}" value="${escapeHtml(edit?.url ?? "")}" />
-              <p class="field-hint" id="type-hint">${escapeHtml(typeMeta.hint)}${
-                selectedType === "ssl" ? ` Fails within ${SSL_WARN_DAYS} days of expiry.` : ""
-              }</p>
             </div>
             <div id="keyword-field" ${selectedType === "keyword" ? "" : "hidden"}>
               <label for="keyword">Keyword</label>
@@ -270,27 +264,43 @@ export function adminPage(opts: { toast?: string; editId?: number }): string {
                 ${intervalOptions(edit?.interval_sec ?? 60)}
               </select>
             </div>
-            <details class="advanced">
-              <summary>Advanced</summary>
-              <div class="grid-2" style="margin-top:12px">
-                <div id="status-field" ${selectedType === "http" || selectedType === "keyword" ? "" : "hidden"}>
-                  <label for="expected_status">Expected status</label>
-                  <input id="expected_status" name="expected_status" type="number" min="100" max="599" value="${edit?.expected_status ?? 200}" />
-                </div>
-                <div>
-                  <label for="timeout_ms">Timeout ms</label>
-                  <input id="timeout_ms" name="timeout_ms" type="number" min="2000" max="30000" value="${edit?.timeout_ms ?? 10000}" />
-                </div>
-              </div>
-            </details>
-            ${edit ? `<input type="hidden" name="enabled" value="${edit.enabled}" />` : ""}
-            <div class="row">
-              <button class="btn primary" type="submit">${edit ? `${icon("save")}Save` : `${icon("plus")}Add monitor`}</button>
-              ${edit ? `<a class="btn" href="/admin">${icon("cancel")}Cancel</a>` : ""}
-            </div>
           </div>
-        </form>
-      </div>
+
+          <details class="advanced">
+            <summary>Advanced</summary>
+            <div class="grid-2" style="margin-top:12px">
+              <div id="status-field" ${selectedType === "http" || selectedType === "keyword" ? "" : "hidden"}>
+                <label for="expected_status">Expected status</label>
+                <input id="expected_status" name="expected_status" type="number" min="100" max="599" value="${edit?.expected_status ?? 200}" />
+              </div>
+              <div>
+                <label for="timeout_ms">Timeout ms</label>
+                <input id="timeout_ms" name="timeout_ms" type="number" min="2000" max="30000" value="${edit?.timeout_ms ?? 10000}" />
+              </div>
+            </div>
+          </details>
+
+          ${edit ? `<input type="hidden" name="enabled" value="${edit.enabled}" />` : ""}
+          <div class="row monitor-form-actions">
+            <button class="btn primary" type="submit">${edit ? `${icon("save")}Save` : `${icon("plus")}Add monitor`}</button>
+            ${edit ? `<a class="btn" href="/admin">${icon("cancel")}Cancel</a>` : ""}
+          </div>
+        </div>
+      </form>
+
+      <section class="monitor-list">
+        <div class="monitor-list-head">
+          <h2>Your monitors</h2>
+          <span class="monitor-count">${monitors.length}</span>
+        </div>
+        <div class="stack">
+          ${
+            monitors.length
+              ? monitors.map((m) => adminCard(m, opts.editId)).join("")
+              : `<div class="empty service"><h2>No monitors yet</h2><p>Pick a check type above, paste a target, and you are watching.</p></div>`
+          }
+        </div>
+      </section>
     </div>
     <script>
       (function () {
