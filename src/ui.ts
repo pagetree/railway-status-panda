@@ -511,6 +511,14 @@ html[data-theme="dark"] .tick:hover { filter: brightness(1.15); }
 .service .meta {
   color: var(--muted);
   font-size: 13px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.service .meta span + span::before {
+  content: "·";
+  margin-right: 8px;
+  color: var(--faint);
 }
 .state {
   display: inline-flex;
@@ -524,6 +532,74 @@ html[data-theme="dark"] .tick:hover { filter: brightness(1.15); }
 .state.up { background: var(--state-up-bg); color: var(--green-text); }
 .state.watch { background: var(--state-watch-bg); color: var(--yellow); }
 .state.down { background: var(--state-down-bg); color: var(--red); }
+.field-label {
+  display: block;
+  margin: 14px 0 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+.field-hint {
+  margin: 8px 0 0;
+  color: var(--faint);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.type-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.type-chip {
+  margin: 0;
+  cursor: pointer;
+}
+.type-chip input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.type-chip-body {
+  display: grid;
+  gap: 2px;
+  min-height: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease;
+}
+.type-chip-body strong {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--ink);
+}
+.type-chip-body small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+.type-chip input:checked + .type-chip-body {
+  border-color: var(--ink);
+  background: var(--soft-bg);
+  box-shadow: 0 0 0 1px var(--ink);
+}
+.type-chip:hover .type-chip-body {
+  background: var(--soft-bg);
+}
+.advanced {
+  margin-top: 4px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+.advanced summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  list-style: none;
+}
+.advanced summary::-webkit-details-marker { display: none; }
 .login-shell {
   min-height: 100vh;
   display: grid;
@@ -636,7 +712,7 @@ h1 {
   .monitor-bars { flex-wrap: wrap; }
   .uptime-pct { width: 100%; }
   .range-labels { padding-right: 0; }
-  .admin-grid, .grid-2 { grid-template-columns: 1fr; }
+  .admin-grid, .grid-2, .type-grid { grid-template-columns: 1fr; }
   .ticks { height: 28px; }
 }
 `;

@@ -15,6 +15,13 @@ import { adminPassword, checkCredentials, clearSession, isAuthed, loginAllowed, 
 import { startChecker } from "./checker.js";
 import { bus } from "./notify.js";
 import { adminPage, loginPage, overallStatus, settingsPage, statusPage } from "./pages.js";
+import {
+  isDnsHostname,
+  isHttpUrl,
+  normalizeTarget,
+  parseMonitorType,
+  parseTcpTarget,
+} from "./targets.js";
 
 adminPassword();
 seedExampleMonitor();
@@ -194,10 +201,16 @@ function parseMonitor(body: unknown): {
 } | null {
   const data = (body ?? {}) as Record<string, string>;
   const name = String(data.name || "").trim();
-  const url = String(data.url || "").trim();
+  const type = parseMonitorType(data.type);
+  const url = normalizeTarget(type, String(data.url || ""));
   if (!name || !url) return null;
-  if (!/^https?:\/\/[^/?#]+/i.test(url)) return null;
-  const type = data.type === "keyword" ? "keyword" : "http";
+
+  if (type === "tcp" && !parseTcpTarget(url)) return null;
+  if (type === "dns" && !isDnsHostname(url)) return null;
+  if (type === "ssl" && !isHttpUrl(url, true)) return null;
+  if ((type === "http" || type === "keyword") && !isHttpUrl(url)) return null;
+  if (type === "keyword" && !String(data.keyword || "").trim()) return null;
+
   return {
     name,
     url,
@@ -216,7 +229,7 @@ function toastFrom(value: unknown): string | undefined {
     saved: "Saved.",
     removed: "Monitor removed.",
     updated: "Monitor updated.",
-    url: "That URL did not look right.",
+    url: "That target did not look right.",
   };
   return map[key];
 }

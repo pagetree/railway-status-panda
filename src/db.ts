@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
 
-export type MonitorType = "http" | "keyword";
+export type MonitorType = "http" | "keyword" | "tcp" | "dns" | "ssl";
 
 export type Monitor = {
   id: number;

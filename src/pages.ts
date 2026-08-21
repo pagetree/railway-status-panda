@@ -8,7 +8,9 @@ import {
   recentChecks,
   uptimeRatio,
   type Monitor,
+  type MonitorType,
 } from "./db.js";
+import { MONITOR_TYPES, SSL_WARN_DAYS, targetLabel, typeLabel } from "./targets.js";
 import { escapeHtml, formatTime, icon, layout, pct, themeToggle, ticks, wordmark } from "./ui.js";
 
 export type Overall = "calm" | "watch" | "down";
@@ -133,7 +135,7 @@ function monitorList(monitors: Monitor[]): string {
         <div class="monitor-head">
           <div>
             <h3>${escapeHtml(monitor.name)}</h3>
-            <p class="monitor-desc">${escapeHtml(hostOf(monitor.url))}</p>
+            <p class="monitor-desc">${escapeHtml(targetLabel(monitor.type, monitor.url))}</p>
           </div>
           <span class="status-text ${state}">${label}</span>
         </div>
@@ -208,6 +210,8 @@ export function adminPage(opts: { toast?: string; editId?: number }): string {
   const monitors = listMonitors();
   const edit = opts.editId ? getMonitor(opts.editId) : undefined;
   const brand = brandName();
+  const selectedType: MonitorType = edit?.type ?? "http";
+  const typeMeta = MONITOR_TYPES.find((item) => item.value === selectedType) ?? MONITOR_TYPES[0];
   const body = `
     <div class="shell">
       ${nav(
@@ -223,49 +227,62 @@ export function adminPage(opts: { toast?: string; editId?: number }): string {
           ${
             monitors.length
               ? monitors.map((m) => adminCard(m, opts.editId)).join("")
-              : `<div class="empty"><h2>No monitors yet</h2><p>Add a URL on the right. The first check runs within a minute.</p></div>`
+              : `<div class="empty"><h2>No monitors yet</h2><p>Pick a check type, paste a target, and you are watching.</p></div>`
           }
         </div>
-        <form class="service" method="post" action="${edit ? `/admin/monitors/${edit.id}` : "/admin/monitors"}">
+        <form class="service" method="post" action="${edit ? `/admin/monitors/${edit.id}` : "/admin/monitors"}" id="monitor-form">
           <h3 style="margin-bottom:8px">${edit ? "Edit monitor" : "Add a monitor"}</h3>
           <div class="stack">
+            <div>
+              <span class="field-label">Check type</span>
+              <div class="type-grid" role="radiogroup" aria-label="Check type">
+                ${MONITOR_TYPES.map(
+                  (item) => `<label class="type-chip">
+                    <input type="radio" name="type" value="${item.value}" ${selectedType === item.value ? "checked" : ""} />
+                    <span class="type-chip-body">
+                      <strong>${item.label}</strong>
+                      <small>${item.hint}</small>
+                    </span>
+                  </label>`
+                ).join("")}
+              </div>
+            </div>
             <div>
               <label for="name">Name</label>
               <input id="name" name="name" required placeholder="Marketing site" value="${escapeHtml(edit?.name ?? "")}" />
             </div>
             <div>
-              <label for="url">URL</label>
-              <input id="url" name="url" required placeholder="https://example.com" value="${escapeHtml(edit?.url ?? "")}" />
+              <label for="url" id="target-label">${escapeHtml(typeMeta.targetLabel)}</label>
+              <input id="url" name="url" required placeholder="${escapeHtml(typeMeta.placeholder)}" value="${escapeHtml(edit?.url ?? "")}" />
+              <p class="field-hint" id="type-hint">${escapeHtml(typeMeta.hint)}${
+                selectedType === "ssl" ? ` Fails within ${SSL_WARN_DAYS} days of expiry.` : ""
+              }</p>
             </div>
-            <div class="grid-2">
-              <div>
-                <label for="type">Check</label>
-                <select id="type" name="type">
-                  <option value="http" ${!edit || edit.type === "http" ? "selected" : ""}>HTTP status</option>
-                  <option value="keyword" ${edit?.type === "keyword" ? "selected" : ""}>HTTP + keyword</option>
-                </select>
-              </div>
-              <div>
-                <label for="interval_sec">Interval</label>
-                <select id="interval_sec" name="interval_sec">
-                  ${intervalOptions(edit?.interval_sec ?? 60)}
-                </select>
-              </div>
+            <div id="keyword-field" ${selectedType === "keyword" ? "" : "hidden"}>
+              <label for="keyword">Keyword</label>
+              <input id="keyword" name="keyword" placeholder="ok" value="${escapeHtml(edit?.keyword ?? "")}" ${
+                selectedType === "keyword" ? "required" : ""
+              } />
             </div>
             <div>
-              <label for="keyword">Keyword (optional)</label>
-              <input id="keyword" name="keyword" placeholder="ok" value="${escapeHtml(edit?.keyword ?? "")}" />
+              <label for="interval_sec">Interval</label>
+              <select id="interval_sec" name="interval_sec">
+                ${intervalOptions(edit?.interval_sec ?? 60)}
+              </select>
             </div>
-            <div class="grid-2">
-              <div>
-                <label for="expected_status">Expected status</label>
-                <input id="expected_status" name="expected_status" type="number" min="100" max="599" value="${edit?.expected_status ?? 200}" />
+            <details class="advanced">
+              <summary>Advanced</summary>
+              <div class="grid-2" style="margin-top:12px">
+                <div id="status-field" ${selectedType === "http" || selectedType === "keyword" ? "" : "hidden"}>
+                  <label for="expected_status">Expected status</label>
+                  <input id="expected_status" name="expected_status" type="number" min="100" max="599" value="${edit?.expected_status ?? 200}" />
+                </div>
+                <div>
+                  <label for="timeout_ms">Timeout ms</label>
+                  <input id="timeout_ms" name="timeout_ms" type="number" min="2000" max="30000" value="${edit?.timeout_ms ?? 10000}" />
+                </div>
               </div>
-              <div>
-                <label for="timeout_ms">Timeout ms</label>
-                <input id="timeout_ms" name="timeout_ms" type="number" min="2000" max="30000" value="${edit?.timeout_ms ?? 10000}" />
-              </div>
-            </div>
+            </details>
             ${edit ? `<input type="hidden" name="enabled" value="${edit.enabled}" />` : ""}
             <div class="row">
               <button class="btn primary" type="submit">${edit ? `${icon("save")}Save` : `${icon("plus")}Add monitor`}</button>
@@ -275,6 +292,50 @@ export function adminPage(opts: { toast?: string; editId?: number }): string {
         </form>
       </div>
     </div>
+    <script>
+      (function () {
+        var meta = ${JSON.stringify(
+          Object.fromEntries(
+            MONITOR_TYPES.map((item) => [
+              item.value,
+              {
+                targetLabel: item.targetLabel,
+                placeholder: item.placeholder,
+                hint: item.hint + (item.value === "ssl" ? " Fails within " + SSL_WARN_DAYS + " days of expiry." : ""),
+              },
+            ])
+          )
+        )};
+        var form = document.getElementById("monitor-form");
+        if (!form) return;
+        var label = document.getElementById("target-label");
+        var url = document.getElementById("url");
+        var hint = document.getElementById("type-hint");
+        var keywordField = document.getElementById("keyword-field");
+        var keyword = document.getElementById("keyword");
+        var statusField = document.getElementById("status-field");
+        function sync() {
+          var checked = form.querySelector('input[name="type"]:checked');
+          var type = checked ? checked.value : "http";
+          var info = meta[type] || meta.http;
+          if (label) label.textContent = info.targetLabel;
+          if (url) url.setAttribute("placeholder", info.placeholder);
+          if (hint) hint.textContent = info.hint;
+          var isKeyword = type === "keyword";
+          var isHttp = type === "http" || type === "keyword";
+          if (keywordField) keywordField.hidden = !isKeyword;
+          if (keyword) {
+            if (isKeyword) keyword.setAttribute("required", "required");
+            else keyword.removeAttribute("required");
+          }
+          if (statusField) statusField.hidden = !isHttp;
+        }
+        form.querySelectorAll('input[name="type"]').forEach(function (input) {
+          input.addEventListener("change", sync);
+        });
+        sync();
+      })();
+    </script>
   `;
   return layout({ title: "Monitors", body, mood: overallStatus() === "down" ? "down" : "up", toast: opts.toast });
 }
@@ -289,7 +350,7 @@ function adminCard(monitor: Monitor, editId?: number): string {
     <div class="service-top">
       <div>
         <h3>${escapeHtml(monitor.name)}</h3>
-        <div class="meta"><span>${escapeHtml(monitor.url)}</span></div>
+        <div class="meta"><span>${escapeHtml(typeLabel(monitor.type))}</span><span>${escapeHtml(targetLabel(monitor.type, monitor.url))}</span></div>
       </div>
       <span class="state ${state}">${label}</span>
     </div>
@@ -352,11 +413,6 @@ function intervalOptions(selected: number): string {
   return opts
     .map(([value, label]) => `<option value="${value}" ${value === selected ? "selected" : ""}>${label}</option>`)
     .join("");
-}
-
-function hostOf(url: string): string {
-  const match = url.trim().match(/^https?:\/\/([^/?#]+)/i);
-  return match?.[1] || url;
 }
 
 function padTicks(values: boolean[]): Array<boolean | null> {

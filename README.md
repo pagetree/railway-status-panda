@@ -7,7 +7,7 @@ No setup fields. No database to wire. No empty dashboard.
 ## What you get
 
 A public status page that feels finished on first open.
-HTTP and keyword checks on a 30 second to 10 minute beat.
+HTTP, keyword, TCP, DNS, and SSL checks on a 30 second to 10 minute beat.
 Incident history that opens after two failed checks and closes when the site recovers.
 Discord, Slack, and generic webhook alerts.
 A live `/api/status` feed and a `/badge.svg` for READMEs.
@@ -62,7 +62,7 @@ Observability
 
 # Deploy and Host StatusPanda Uptime on Railway
 
-StatusPanda Uptime is a self hosted monitor with a public status page and a private admin den. Deploy it on Railway and leave the defaults. It watches HTTP URLs, records incidents, and can shout into Discord or Slack when a site falls over. An example check is already running on first boot so the page is never empty.
+StatusPanda Uptime is a self hosted monitor with a public status page and a private admin den. Deploy it on Railway and leave the defaults. It watches HTTP URLs, TCP ports, DNS names, and SSL certificates, records incidents, and can shout into Discord or Slack when a site falls over. An example check is already running on first boot so the page is never empty.
 
 ## About Hosting StatusPanda Uptime
 
@@ -71,7 +71,7 @@ StatusPanda Uptime runs as one Node service. Checks, the public page, and SQLite
 ## Common Use Cases
 
 - Publish a calm status page for customers while you sleep
-- Watch a marketing site, API, and docs URL from one den
+- Watch a marketing site, API, TCP port, DNS name, and SSL cert from one den
 - Ping Discord or Slack the moment a check fails twice
 
 ## Dependencies for StatusPanda Uptime Hosting
