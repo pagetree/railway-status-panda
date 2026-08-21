@@ -4,6 +4,8 @@ A calm public status page with a private admin den. Deploy on Railway, paste a U
 
 No setup fields. No database to wire. No empty dashboard.
 
+**Live demo:** [statuspanda-production.up.railway.app](https://statuspanda-production.up.railway.app/)
+
 ## What you get
 
 A public status page that feels finished on first open.
