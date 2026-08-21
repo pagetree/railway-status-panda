@@ -264,21 +264,15 @@ export function adminPage(opts: { toast?: string; editId?: number }): string {
                 ${intervalOptions(edit?.interval_sec ?? 60)}
               </select>
             </div>
-          </div>
-
-          <details class="advanced">
-            <summary>Advanced</summary>
-            <div class="grid-2" style="margin-top:12px">
-              <div id="status-field" ${selectedType === "http" || selectedType === "keyword" ? "" : "hidden"}>
-                <label for="expected_status">Expected status</label>
-                <input id="expected_status" name="expected_status" type="number" min="100" max="599" value="${edit?.expected_status ?? 200}" />
-              </div>
-              <div>
-                <label for="timeout_ms">Timeout ms</label>
-                <input id="timeout_ms" name="timeout_ms" type="number" min="2000" max="30000" value="${edit?.timeout_ms ?? 10000}" />
-              </div>
+            <div id="status-field" ${selectedType === "http" || selectedType === "keyword" ? "" : "hidden"}>
+              <label for="expected_status">Expected status</label>
+              <input id="expected_status" name="expected_status" type="number" min="100" max="599" value="${edit?.expected_status ?? 200}" />
             </div>
-          </details>
+            <div>
+              <label for="timeout_ms">Timeout ms</label>
+              <input id="timeout_ms" name="timeout_ms" type="number" min="2000" max="30000" value="${edit?.timeout_ms ?? 10000}" />
+            </div>
+          </div>
 
           ${edit ? `<input type="hidden" name="enabled" value="${edit.enabled}" />` : ""}
           <div class="row monitor-form-actions">
