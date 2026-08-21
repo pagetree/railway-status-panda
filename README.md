@@ -88,15 +88,15 @@ Required variables (leave the defaults):
 - `ADMIN_USER`: Admin login username. Leave admin unless you want a different name.
 - `ADMIN_PASSWORD`: Leave this. Railway fills a random password. After deploy, copy it from the service Variables tab to log in.
 
-After deploy:
+After deploy (swap in your Railway public URL):
 
-1. Public page: `https://<domain>/`
-2. Admin: `https://<domain>/login`
+1. Public page: `https://YOUR_APP.up.railway.app/`
+2. Admin: `https://YOUR_APP.up.railway.app/login`
 3. Username: `admin` (or your `ADMIN_USER`)
 4. Password: service variable `ADMIN_PASSWORD`
-5. Health: `https://<domain>/health`
-6. JSON: `https://<domain>/api/status`
-7. Badge: `https://<domain>/badge.svg`
+5. Health: `https://YOUR_APP.up.railway.app/health`
+6. JSON: `https://YOUR_APP.up.railway.app/api/status`
+7. Badge: `https://YOUR_APP.up.railway.app/badge.svg`
 
 An example monitor for `https://railway.com` is created on first boot. Remove it in Admin whenever you like.
 
