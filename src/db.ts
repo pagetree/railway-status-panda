@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
+import { runMigrations } from "./migrations.js";
 
 export type MonitorType = "http" | "keyword" | "tcp" | "dns" | "ssl";
 
@@ -27,6 +28,8 @@ export type CheckRow = {
   checked_at: string;
 };
 
+export type IncidentSource = "auto" | "manual";
+
 export type Incident = {
   id: number;
   monitor_id: number;
@@ -34,6 +37,7 @@ export type Incident = {
   ended_at: string | null;
   title: string;
   body: string;
+  source: IncidentSource;
 };
 
 const MAX_CHECKS_PER_MONITOR = 2000;
@@ -89,6 +93,7 @@ db.exec(`
     ended_at TEXT,
     title TEXT NOT NULL,
     body TEXT NOT NULL DEFAULT '',
+    source TEXT NOT NULL DEFAULT 'auto',
     FOREIGN KEY (monitor_id) REFERENCES monitors(id) ON DELETE CASCADE
   );
 
@@ -100,6 +105,8 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_checks_monitor_time ON checks(monitor_id, checked_at);
   CREATE INDEX IF NOT EXISTS idx_incidents_open ON incidents(monitor_id, ended_at);
 `);
+
+runMigrations(db);
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -266,36 +273,54 @@ export function openIncident(monitorId: number): Incident | undefined {
     .get(monitorId) as Incident | undefined;
 }
 
-export function startIncident(monitorId: number, title: string, body: string): Incident {
+export function getIncident(id: number): Incident | undefined {
+  return db.prepare("SELECT * FROM incidents WHERE id = ?").get(id) as Incident | undefined;
+}
+
+export function updateIncident(id: number, input: { monitor_id: number; title: string; body: string }): void {
+  db.prepare("UPDATE incidents SET monitor_id = ?, title = ?, body = ? WHERE id = ?").run(
+    input.monitor_id,
+    input.title,
+    input.body,
+    id
+  );
+}
+
+export function deleteIncident(id: number): void {
+  db.prepare("DELETE FROM incidents WHERE id = ?").run(id);
+}
+
+export function startIncident(monitorId: number, title: string, body: string, source: IncidentSource = "auto"): Incident {
   const existing = openIncident(monitorId);
   if (existing) return existing;
   const started_at = nowIso();
   const info = db
     .prepare(
-      "INSERT INTO incidents (monitor_id, started_at, title, body) VALUES (?, ?, ?, ?)"
+      "INSERT INTO incidents (monitor_id, started_at, title, body, source) VALUES (?, ?, ?, ?, ?)"
     )
-    .run(monitorId, started_at, title, body);
+    .run(monitorId, started_at, title, body, source);
   return db.prepare("SELECT * FROM incidents WHERE id = ?").get(Number(info.lastInsertRowid)) as Incident;
 }
 
-export function resolveIncident(monitorId: number): Incident | undefined {
+export function resolveIncident(monitorId: number, opts?: { autoOnly?: boolean }): Incident | undefined {
   const open = openIncident(monitorId);
   if (!open) return undefined;
+  if (opts?.autoOnly && open.source !== "auto") return undefined;
   const ended_at = nowIso();
   db.prepare("UPDATE incidents SET ended_at = ? WHERE id = ?").run(ended_at, open.id);
   return { ...open, ended_at };
 }
 
-export function listIncidents(limit = 20): Array<Incident & { monitor_name: string }> {
+export function listIncidentsSince(sinceIso: string): Array<Incident & { monitor_name: string }> {
   return db
     .prepare(
       `SELECT incidents.*, monitors.name AS monitor_name
        FROM incidents
        JOIN monitors ON monitors.id = incidents.monitor_id
-       ORDER BY incidents.started_at DESC
-       LIMIT ?`
+       WHERE incidents.started_at >= ?
+       ORDER BY incidents.started_at DESC`
     )
-    .all(limit) as Array<Incident & { monitor_name: string }>;
+    .all(sinceIso) as Array<Incident & { monitor_name: string }>;
 }
 
 export function lastCheckedAt(): string | null {
@@ -306,6 +331,9 @@ export function lastCheckedAt(): string | null {
 }
 
 export function seedExampleMonitor(): void {
+  const row = db.prepare("SELECT COUNT(*) AS n FROM monitors").get() as { n: number };
+  if (row.n > 0) return;
+
   const examples = [
     { name: "Website", url: "https://railway.com" },
     { name: "API health", url: "https://www.githubstatus.com" },
@@ -313,8 +341,6 @@ export function seedExampleMonitor(): void {
   ];
 
   for (const example of examples) {
-    const existing = db.prepare("SELECT id FROM monitors WHERE url = ?").get(example.url);
-    if (existing) continue;
     createMonitor({
       name: example.name,
       url: example.url,
