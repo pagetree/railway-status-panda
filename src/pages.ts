@@ -1,21 +1,27 @@
 import {
+  getIncident,
   getMonitor,
   getSetting,
+  HISTORY_BARS,
+  HISTORY_DAYS,
   lastCheckedAt,
   latestCheck,
-  listIncidents,
+  listIncidentsSince,
   listMonitors,
   recentChecks,
-  uptimeRatio,
+  RECENT_CHECKS,
+  uptimeSlots,
+  type Incident,
   type Monitor,
   type MonitorType,
 } from "./db.js";
 import { MONITOR_TYPES, SSL_WARN_DAYS, targetLabel, typeLabel } from "./targets.js";
-import { escapeHtml, formatTime, icon, layout, pct, themeToggle, ticks, wordmark } from "./ui.js";
+import { dayIndex, formatDay, lastDays, SERVER_TIME_ZONE, type Day } from "./time.js";
+import { dayTicks, escapeHtml, formatTime, icon, layout, pct, themeToggle, ticks, wordmark, type DayTick } from "./ui.js";
 
 export type Overall = "calm" | "watch" | "down";
 
-const TICK_COUNT = 90;
+const INCIDENT_DAYS = 30;
 
 export function overallStatus(): Overall {
   const monitors = listMonitors().filter((m) => m.enabled);
@@ -36,23 +42,27 @@ function brandName(): string {
   return process.env.APP_NAME?.trim() || "StatusPanda";
 }
 
+function logoUrl(): string {
+  return getSetting("logo_url") || "/icon.svg";
+}
+
 function nav(brand: string, extra: string): string {
   return `<header class="nav">
-    ${wordmark(brand)}
+    ${wordmark(brand, logoUrl())}
     <div class="nav-links">${extra}${themeToggle()}</div>
   </header>`;
 }
 
-export function statusPage(): string {
+export function statusPage(opts: { isAdmin?: boolean } = {}): string {
   const overall = overallStatus();
   const copy = headlines[overall];
   const monitors = listMonitors();
-  const incidents = listIncidents(8);
   const brand = brandName();
   const title = getSetting("page_title", brand);
   const subtitle = getSetting("page_subtitle");
   const last = lastCheckedAt();
   const headline = title === brand ? copy.title : title;
+  const hideAdminButton = !opts.isAdmin && getSetting("hide_admin_button") === "1";
 
   const body = `
     <div class="shell">
@@ -60,7 +70,7 @@ export function statusPage(): string {
         brand,
         `<a class="nav-link" href="#status">Status</a>
          <a class="nav-link" href="#incidents">Previous incidents</a>
-         <a class="btn" href="/login">${icon("admin")}Admin</a>`
+         ${hideAdminButton ? "" : `<a class="btn" href="/${opts.isAdmin ? "admin" : "login"}">${icon("admin")}Admin</a>`}`
       )}
 
       <section class="hero" id="status">
@@ -74,20 +84,54 @@ export function statusPage(): string {
         </div>
       </section>
 
-      ${monitors.length ? monitorList(monitors) : emptyPublic()}
-      ${incidentList(incidents)}
+      ${monitors.length ? monitorList(monitors, lastDays(HISTORY_BARS, SERVER_TIME_ZONE)) : emptyPublic()}
+      ${incidentDays()}
 
       <footer class="footer">
         <span>Powered by StatusPanda</span>
       </footer>
     </div>
     <script>
+      (function () {
+        var KEY = 'sp-open-days';
+        var days = Array.prototype.slice.call(document.querySelectorAll('details.incident-day'));
+        var stored = null;
+        try { stored = sessionStorage.getItem(KEY); } catch (e) {}
+        if (stored !== null) {
+          var open = stored ? stored.split(',') : [];
+          days.forEach(function (d) { d.open = open.indexOf(d.dataset.day) !== -1; });
+        }
+        days.forEach(function (d) {
+          d.addEventListener('toggle', function () {
+            var current = days.filter(function (x) { return x.open; }).map(function (x) { return x.dataset.day; });
+            try { sessionStorage.setItem(KEY, current.join(',')); } catch (e) {}
+          });
+        });
+      })();
       const src = new EventSource('/events');
       src.onmessage = () => { location.reload(); };
     </script>
   `;
 
-  return layout({ title: `${title} status`, body, mood: copy.mood });
+  return layout({
+    title: `${title} Status`,
+    body,
+    mood: copy.mood,
+    logoUrl: logoUrl(),
+    headExtra: opts.isAdmin ? undefined : ga4Snippet(),
+  });
+}
+
+function ga4Snippet(): string | undefined {
+  const id = getSetting("ga4_id").trim();
+  if (!/^G-[A-Z0-9]+$/i.test(id)) return;
+  return `<script async src="https://www.googletagmanager.com/gtag/js?id=${id}"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', '${id}');
+  </script>`;
 }
 
 function statusGlyph(mood: "up" | "watch" | "down"): string {
@@ -121,15 +165,15 @@ function emptyPublic(): string {
   </section>`;
 }
 
-function monitorList(monitors: Monitor[]): string {
+function monitorList(monitors: Monitor[], days: Day[]): string {
   const rows = monitors
     .map((monitor) => {
       const last = latestCheck(monitor.id);
       const ok = last ? Boolean(last.ok) : null;
       const state = ok == null ? "watch" : ok ? "up" : "down";
       const label = ok == null ? "Checking" : ok ? "Operational" : "Down";
-      const history = padTicks(recentChecks(monitor.id, TICK_COUNT).map((c) => Boolean(c.ok)));
-      const up = pct(uptimeRatio(monitor.id));
+      const history = dailyHistory(monitor.id, days);
+      const up = pct(uptimeRatio(history));
       const upLabel = up === "new" ? "No data yet" : `${up} uptime`;
       return `<article class="monitor">
         <div class="monitor-head">
@@ -140,13 +184,13 @@ function monitorList(monitors: Monitor[]): string {
           <span class="status-text ${state}">${label}</span>
         </div>
         <div class="monitor-bars">
-          ${ticks(history)}
+          ${dayTicks(history)}
           <span class="uptime-pct">${escapeHtml(upLabel)}</span>
         </div>
         <div class="range-labels">
-          <span>90 checks ago</span>
-          <span>60</span>
-          <span>30</span>
+          <span>${HISTORY_DAYS} days ago</span>
+          <span>${Math.round((HISTORY_DAYS * 2) / 3)}</span>
+          <span>${Math.round(HISTORY_DAYS / 3)}</span>
           <span>Today</span>
         </div>
       </article>`;
@@ -155,30 +199,70 @@ function monitorList(monitors: Monitor[]): string {
   return `<section class="services" id="services">${rows}</section>`;
 }
 
-function incidentList(
-  incidents: Array<{ title: string; started_at: string; ended_at: string | null; monitor_name: string; body: string }>
-): string {
-  const items = incidents.length
-    ? incidents
-        .map((item) => {
-          const open = !item.ended_at;
-          return `<article class="incident ${open ? "open" : ""}">
-            <div class="incident-head">
-              <h3>${escapeHtml(item.title)}</h3>
-              <span class="status-text ${open ? "down" : "up"}">${open ? "Ongoing" : "Resolved"}</span>
-            </div>
-            <p class="incident-meta">${escapeHtml(item.monitor_name)} · ${escapeHtml(formatTime(item.started_at))}${
-              open ? "" : ` · Resolved ${escapeHtml(formatTime(item.ended_at))}`
-            }</p>
-            <p class="incident-body">${escapeHtml(item.body)}</p>
-          </article>`;
-        })
-        .join("")
-    : `<p class="incident-empty">No incidents reported.</p>`;
+function dailyHistory(monitorId: number, days: Day[]): DayTick[] {
+  const history = days.map((day) => ({ key: day.key, total: 0, ok: 0 }));
+  for (const slot of uptimeSlots(monitorId, days[0].start)) {
+    const day = history[dayIndex(days, slot.start)];
+    if (!day) continue;
+    day.total += slot.total;
+    day.ok += slot.ok;
+  }
+  return history;
+}
+
+function uptimeRatio(history: DayTick[]): number | null {
+  const total = history.reduce((sum, day) => sum + day.total, 0);
+  const ok = history.reduce((sum, day) => sum + day.ok, 0);
+  return total ? ok / total : null;
+}
+
+function recentIncidents(days: Day[]): Array<Incident & { monitor_name: string }> {
+  return listIncidentsSince(new Date(days[0].start).toISOString());
+}
+
+function incidentDays(): string {
+  const days = lastDays(INCIDENT_DAYS, SERVER_TIME_ZONE);
+  const byDay = days.map((): Array<Incident & { monitor_name: string }> => []);
+  for (const item of recentIncidents(days)) {
+    byDay[dayIndex(days, Date.parse(item.started_at))]?.push(item);
+  }
+
+  const todayKey = days[days.length - 1].key;
+  const sections = days.map(({ key }, i) => {
+    const items = byDay[i];
+    const hasOpen = items.some((item) => !item.ended_at);
+    const count = items.length
+      ? `<span class="status-text ${hasOpen ? "down" : "up"}">${items.length} ${items.length === 1 ? "incident" : "incidents"}</span>`
+      : `<span class="incident-day-none">No incidents</span>`;
+    return `<details class="incident-day" data-day="${key}" ${key === todayKey ? "open" : ""}>
+      <summary>
+        <span class="incident-day-label">${key === todayKey ? "Today" : escapeHtml(formatDay(key))}</span>
+        <span class="incident-day-count">${count}${icon("chevron")}</span>
+      </summary>
+      <div class="incident-day-body">
+        ${items.length ? items.map(incidentItem).join("") : `<p class="incident-empty">No incidents reported.</p>`}
+      </div>
+    </details>`;
+  });
+
   return `<section class="incidents" id="incidents">
     <h2>Previous incidents</h2>
-    ${items}
+    ${sections.reverse().join("")}
   </section>`;
+}
+
+function incidentItem(item: Incident & { monitor_name: string }): string {
+  const open = !item.ended_at;
+  return `<article class="incident ${open ? "open" : ""}">
+    <div class="incident-head">
+      <h3>${escapeHtml(item.title)}</h3>
+      <span class="status-text ${open ? "down" : "up"}">${open ? "Ongoing" : "Resolved"}</span>
+    </div>
+    <p class="incident-meta">${escapeHtml(item.monitor_name)} · ${escapeHtml(formatTime(item.started_at))}${
+      open ? "" : ` · Resolved ${escapeHtml(formatTime(item.ended_at))}`
+    }</p>
+    ${item.body ? `<p class="incident-body">${escapeHtml(item.body)}</p>` : ""}
+  </article>`;
 }
 
 export function loginPage(error?: string): string {
@@ -186,7 +270,7 @@ export function loginPage(error?: string): string {
     <div class="login-shell">
       ${themeToggle()}
       <div class="login-card">
-        ${wordmark(brandName())}
+        ${wordmark(brandName(), logoUrl())}
         <h1>Welcome in.</h1>
         <p class="hint">Username defaults to admin. Password is ADMIN_PASSWORD in your Railway variables.</p>
         ${error ? `<p class="error">${escapeHtml(error)}</p>` : ""}
@@ -203,12 +287,14 @@ export function loginPage(error?: string): string {
       </div>
     </div>
   `;
-  return layout({ title: "Admin", body, mood: "up" });
+  return layout({ title: "Admin", body, mood: "up", logoUrl: logoUrl() });
 }
 
-export function adminPage(opts: { toast?: string; editId?: number }): string {
+export function adminPage(opts: { toast?: string; editId?: number; editIncidentId?: number }): string {
   const monitors = listMonitors();
+  const incidents = recentIncidents(lastDays(INCIDENT_DAYS, SERVER_TIME_ZONE));
   const edit = opts.editId ? getMonitor(opts.editId) : undefined;
+  const editIncident = opts.editIncidentId ? getIncident(opts.editIncidentId) : undefined;
   const brand = brandName();
   const selectedType: MonitorType = edit?.type ?? "http";
   const typeMeta = MONITOR_TYPES.find((item) => item.value === selectedType) ?? MONITOR_TYPES[0];
@@ -295,6 +381,22 @@ export function adminPage(opts: { toast?: string; editId?: number }): string {
           }
         </div>
       </section>
+
+      ${incidentForm(monitors, editIncident)}
+
+      <section class="monitor-list" style="margin-top:40px">
+        <div class="monitor-list-head">
+          <h2>Incidents</h2>
+          <span class="monitor-count">${incidents.length}</span>
+        </div>
+        <div class="stack">
+          ${
+            incidents.length
+              ? incidents.map((item) => adminIncidentCard(item, opts.editIncidentId)).join("")
+              : `<div class="empty service"><h2>No incidents yet</h2><p>Reported incidents will show up here.</p></div>`
+          }
+        </div>
+      </section>
     </div>
     <script>
       (function () {
@@ -341,7 +443,7 @@ export function adminPage(opts: { toast?: string; editId?: number }): string {
       })();
     </script>
   `;
-  return layout({ title: "Monitors", body, mood: overallStatus() === "down" ? "down" : "up", toast: opts.toast });
+  return layout({ title: "Monitors", body, mood: overallStatus() === "down" ? "down" : "up", toast: opts.toast, logoUrl: logoUrl() });
 }
 
 function adminCard(monitor: Monitor, editId?: number): string {
@@ -349,7 +451,7 @@ function adminCard(monitor: Monitor, editId?: number): string {
   const ok = last ? Boolean(last.ok) : null;
   const state = ok == null ? "watch" : ok ? "up" : "down";
   const label = ok == null ? "Checking" : ok ? "Up" : "Down";
-  const history = padTicks(recentChecks(monitor.id, TICK_COUNT).map((c) => Boolean(c.ok)));
+  const history = padTicks(recentChecks(monitor.id, RECENT_CHECKS).map((c) => Boolean(c.ok)));
   return `<article class="service">
     <div class="service-top">
       <div>
@@ -365,6 +467,69 @@ function adminCard(monitor: Monitor, editId?: number): string {
         <button class="btn" type="submit">${monitor.enabled ? `${icon("pause")}Pause` : `${icon("play")}Resume`}</button>
       </form>
       <form method="post" action="/admin/monitors/${monitor.id}/delete">
+        <button class="btn danger" type="submit">${icon("trash")}Remove</button>
+      </form>
+    </div>
+  </article>`;
+}
+
+function incidentForm(monitors: Monitor[], edit?: Incident): string {
+  if (!monitors.length) return "";
+  return `<form class="service stack" method="post" action="${
+    edit ? `/admin/incidents/${edit.id}` : "/admin/incidents"
+  }" style="margin-top:40px">
+    <h3>${edit ? "Edit incident" : "Report an incident"}</h3>
+    <div class="form-grid">
+      <div>
+        <label for="incident_monitor_id">Monitor</label>
+        <select id="incident_monitor_id" name="monitor_id" required>
+          ${monitors
+            .map(
+              (m) =>
+                `<option value="${m.id}" ${edit?.monitor_id === m.id ? "selected" : ""}>${escapeHtml(m.name)}</option>`
+            )
+            .join("")}
+        </select>
+      </div>
+      <div>
+        <label for="incident_title">Title</label>
+        <input id="incident_title" name="title" required placeholder="Elevated error rates" value="${escapeHtml(edit?.title ?? "")}" />
+      </div>
+    </div>
+    <div>
+      <label for="incident_body">Description</label>
+      <textarea id="incident_body" name="body" rows="3" placeholder="What is happening and what you are doing about it">${escapeHtml(edit?.body ?? "")}</textarea>
+    </div>
+    <div class="row">
+      <button class="btn primary" type="submit">${edit ? `${icon("save")}Save` : `${icon("plus")}Report incident`}</button>
+      ${edit ? `<a class="btn" href="/admin">${icon("cancel")}Cancel</a>` : ""}
+    </div>
+  </form>`;
+}
+
+function adminIncidentCard(item: Incident & { monitor_name: string }, editIncidentId?: number): string {
+  const open = !item.ended_at;
+  return `<article class="service">
+    <div class="service-top">
+      <div>
+        <h3>${escapeHtml(item.title)}</h3>
+        <div class="meta"><span>${escapeHtml(item.monitor_name)}</span><span>${escapeHtml(formatTime(item.started_at))}</span></div>
+        ${item.body ? `<p class="incident-body">${escapeHtml(item.body)}</p>` : ""}
+      </div>
+      <span class="state ${open ? "down" : "up"}">${open ? "Ongoing" : "Resolved"}</span>
+    </div>
+    <div class="row" style="margin-top:16px">
+      <a class="btn" href="/admin?editIncident=${item.id}">${icon("edit")}${
+        editIncidentId === item.id ? "Editing" : "Edit"
+      }</a>
+      ${
+        open
+          ? `<form method="post" action="/admin/incidents/${item.monitor_id}/resolve">
+        <button class="btn" type="submit">${icon("save")}Resolve</button>
+      </form>`
+          : ""
+      }
+      <form method="post" action="/admin/incidents/${item.id}/delete">
         <button class="btn danger" type="submit">${icon("trash")}Remove</button>
       </form>
     </div>
@@ -387,6 +552,16 @@ export function settingsPage(toast?: string): string {
           <label for="page_subtitle">Public subtitle</label>
           <input id="page_subtitle" name="page_subtitle" value="${escapeHtml(getSetting("page_subtitle", ""))}" placeholder="Leave blank to use the live headline" />
         </div>
+        <div class="row" style="align-items:center;gap:8px">
+          <input type="checkbox" id="hide_admin_button" name="hide_admin_button" value="1" style="width:auto" ${
+            getSetting("hide_admin_button") === "1" ? "checked" : ""
+          } />
+          <label for="hide_admin_button" style="margin:0">Hide the Admin button on the public status page for visitors who aren't logged in</label>
+        </div>
+        <div>
+          <label for="logo_url">Logo URL</label>
+          <input id="logo_url" name="logo_url" value="${escapeHtml(getSetting("logo_url", ""))}" placeholder="https://example.com/logo.svg" />
+        </div>
         <div>
           <label for="discord_webhook">Discord webhook</label>
           <input id="discord_webhook" name="discord_webhook" value="${escapeHtml(getSetting("discord_webhook"))}" placeholder="https://discord.com/api/webhooks/..." />
@@ -399,11 +574,16 @@ export function settingsPage(toast?: string): string {
           <label for="generic_webhook">Generic JSON webhook</label>
           <input id="generic_webhook" name="generic_webhook" value="${escapeHtml(getSetting("generic_webhook"))}" placeholder="https://example.com/hooks/status" />
         </div>
+        <div>
+          <label for="ga4_id">Google Analytics 4 measurement ID</label>
+          <input id="ga4_id" name="ga4_id" value="${escapeHtml(getSetting("ga4_id"))}" placeholder="G-XXXXXXXXXX" />
+          <p class="field-hint">Only tracks visitors on the public status page, never signed-in admins.</p>
+        </div>
         <button class="btn primary" type="submit">${icon("save")}Save</button>
       </form>
     </div>
   `;
-  return layout({ title: "Settings", body, mood: "up", toast });
+  return layout({ title: "Settings", body, mood: "up", toast, logoUrl: logoUrl() });
 }
 
 function intervalOptions(selected: number): string {
@@ -420,6 +600,6 @@ function intervalOptions(selected: number): string {
 }
 
 function padTicks(values: boolean[]): Array<boolean | null> {
-  const missing = Math.max(0, TICK_COUNT - values.length);
+  const missing = Math.max(0, RECENT_CHECKS - values.length);
   return [...Array(missing).fill(null), ...values];
 }

@@ -1,3 +1,5 @@
+import { formatDay } from "./time.js";
+
 export function escapeHtml(value: string): string {
   return value
     .replaceAll("&", "&amp;")
@@ -12,15 +14,18 @@ export function layout(opts: {
   body: string;
   mood?: "up" | "watch" | "down";
   toast?: string;
+  logoUrl?: string;
+  headExtra?: string;
 }): string {
   const mood = opts.mood ?? "up";
+  const favicon = escapeHtml(opts.logoUrl || "/icon.svg");
   return `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${escapeHtml(opts.title)}</title>
-  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+  <link rel="icon" href="${favicon}" type="image/svg+xml" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -34,6 +39,7 @@ export function layout(opts: {
     })();
   </script>
   <style>${css}</style>
+  ${opts.headExtra ?? ""}
 </head>
 <body class="mood-${mood}">
   ${opts.body}
@@ -49,6 +55,20 @@ export function ticks(values: Array<boolean | null>): string {
       const cls = value == null ? "unknown" : value ? "up" : "down";
       const label = value == null ? "No data" : value ? "Up" : "Down";
       return `<i class="tick ${cls}" title="${label}"></i>`;
+    })
+    .join("");
+  return `<div class="ticks">${cells}</div>`;
+}
+
+export type DayTick = { key: string; total: number; ok: number };
+
+export function dayTicks(days: DayTick[]): string {
+  const cells = days
+    .map(({ key, total, ok }) => {
+      const cls = !total ? "unknown" : ok === total ? "up" : ok === 0 ? "down" : "watch";
+      const day = formatDay(key);
+      const label = total ? `${day} · ${pct(ok / total)} uptime` : `${day} · No data`;
+      return `<i class="tick ${cls}" title="${escapeHtml(label)}"></i>`;
     })
     .join("");
   return `<div class="ticks">${cells}</div>`;
@@ -81,9 +101,9 @@ export function pct(ratio: number | null): string {
   return `${(ratio * 100).toFixed(2)}%`;
 }
 
-export function wordmark(name = "StatusPanda"): string {
+export function wordmark(name = "StatusPanda", logoUrl = "/icon.svg"): string {
   return `<a class="brand" href="/">
-    <img class="mark" src="/icon.svg" width="32" height="32" alt="" />
+    <img class="mark" src="${escapeHtml(logoUrl)}" width="32" height="32" alt="" />
     <span class="word">${escapeHtml(name)}</span>
   </a>`;
 }
@@ -101,13 +121,14 @@ type IconName =
   | "pause"
   | "play"
   | "trash"
-  | "monitors";
+  | "monitors"
+  | "chevron";
 
 const icons: Record<IconName, string> = {
   admin: `<path d="M12 3l7 3v5c0 4.5-2.8 7.8-7 9-4.2-1.2-7-4.5-7-9V6l7-3Z"/><path d="M9.5 12.2l1.8 1.8 3.4-3.6"/>`,
   enter: `<path d="M10 7l5 5-5 5"/><path d="M4 12h11"/><path d="M19 5v14"/>`,
   status: `<path d="M4 14v2M8 10v6M12 7v9M16 11v5M20 8v8"/>`,
-  settings: `<circle cx="12" cy="12" r="3"/><path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M5.8 5.8l1.4 1.4M16.8 16.8l1.4 1.4M18.2 5.8l-1.4 1.4M7.2 16.8l-1.4 1.4"/>`,
+  settings: `<path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>`,
   logout: `<path d="M10 7V5a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1v-2"/><path d="M4 12h10"/><path d="M7 9l-3 3 3 3"/>`,
   save: `<path d="M5 5h11l3 3v11H5V5Z"/><path d="M8 5v5h7V5"/><path d="M8 19v-6h8v6"/>`,
   plus: `<path d="M12 5v14M5 12h14"/>`,
@@ -117,6 +138,7 @@ const icons: Record<IconName, string> = {
   play: `<path d="M8 6.5v11l9-5.5-9-5.5Z"/>`,
   trash: `<path d="M5 8h14M9 8V6h6v2M8 8l1 12h6l1-12"/>`,
   monitors: `<rect x="4" y="5" width="16" height="11" rx="1.5"/><path d="M8 20h8M12 16v4"/>`,
+  chevron: `<path d="M9 6l6 6-6 6"/>`,
 };
 
 export function icon(name: IconName): string {
@@ -412,6 +434,7 @@ html[data-theme="dark"] .theme-toggle .icon-sun { display: block; }
 }
 .tick.up { background: var(--green); }
 .tick.down { background: var(--red); }
+.tick.watch { background: var(--yellow); }
 .tick.unknown { background: var(--line); }
 .tick:hover { filter: brightness(.92); }
 html[data-theme="dark"] .tick:hover { filter: brightness(1.15); }
@@ -486,6 +509,47 @@ html[data-theme="dark"] .tick:hover { filter: brightness(1.15); }
   border-top: 1px solid var(--line);
   color: var(--muted);
 }
+.incident-day {
+  border-top: 1px solid var(--line);
+}
+.incident-day:last-child { border-bottom: 1px solid var(--line); }
+.incident-day summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 0;
+  cursor: pointer;
+  list-style: none;
+}
+.incident-day summary::-webkit-details-marker { display: none; }
+.incident-day-label {
+  font-size: 15px;
+  font-weight: 600;
+}
+.incident-day-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.incident-day-none {
+  color: var(--faint);
+  font-size: 14px;
+}
+.incident-day-count .btn-icon {
+  color: var(--faint);
+  transition: transform .15s ease;
+}
+.incident-day[open] .incident-day-count .btn-icon { transform: rotate(90deg); }
+.incident-day-body {
+  padding: 0 0 14px 16px;
+  border-left: 2px solid var(--line);
+  margin-bottom: 14px;
+}
+.incident-day-body .incident { padding: 12px 0; }
+.incident-day-body .incident:first-child { border-top: 0; padding-top: 0; }
+.incident-day-body .incident:last-child { border-bottom: 0; padding-bottom: 0; }
+.incident-day-body .incident-empty { border-top: 0; padding: 0; }
 .footer {
   margin-top: 48px;
   color: var(--faint);
